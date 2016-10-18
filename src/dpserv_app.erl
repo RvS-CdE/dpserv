@@ -15,6 +15,15 @@
 %%====================================================================
 
 start(_StartType, _StartArgs) ->
+    Dispatch = cowboy_router:compile([
+        {'_', [{"/", test_handler, []} ]}
+    ]),
+
+    {ok, _} = cowboy:start_clear(http_listener, 100,
+        [{port,9088}],
+        #{env => #{dispatch => Dispatch}}
+    ),
+
     dpserv_sup:start_link().
 
 %%--------------------------------------------------------------------
