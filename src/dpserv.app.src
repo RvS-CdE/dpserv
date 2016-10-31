@@ -8,7 +8,7 @@
     stdlib,
     cowboy
    ]},
-  {env,[]},
+  {env,[{srv_dir,"/srv/web/adv_dev"}]},
   {modules, []},
 
   {maintainers, []},
