@@ -28,22 +28,27 @@ allowed_methods(Req, State) ->
 
 resource_exists(Req, S) ->
     io:format("\n - Resource exist check",[]),
-    OPath = original_path(S#state.adv_id),
-    Result = filelib:is_file(OPath),
-    ?DBG([opath,exists],[OPath,Result]),
-    {Result, Req, S}.
+    OPath = original_path(S#state.adv_id,maps:get(lang,S#state.opts), maps:get(collection,S#state.opts)),
+    case filelib:is_file(OPath) of
+        true -> {true, Req,S };
+        false -> {false, cowboy_req:reply(404, #{<<"content-type">> => <<"text/plain">>},<<"Error: Just not there">>, Req), S}
+        %false -> {stop, ?ERR_404(<<"Just Not There">>,Req), S}
+    end.
+
+    %?DBG([opath,exists],[OPath,Result]),
+    %{Result, Req, S}.
 
 
 content_types_provided(Req, State) ->
     {[
         {<<"application/pdf">>, to_pdf}
-%       {{<<"application">>, <<"pdf">>, []}, to_pdf}
 %       ,{{<<"text">>, <<"plain">>, []}, to_text}
 %       ,{{<<"text">>, <<"html">>, []}, to_html}
     ], Req, State}.
 
 to_pdf(Req,S) ->
-    OPath = original_path(S#state.adv_id),
+    ?DBG([state],[S]),
+    OPath = original_path(S#state.adv_id,maps:get(lang,S#state.opts), maps:get(collection,S#state.opts)),
     Out = case file:read_file(OPath) of
             {ok, Bin} -> Bin;
             {error, enoent} -> throw({dpserv,nosuchfile,OPath});
@@ -68,6 +73,18 @@ to_html(Req,State) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Internal Functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-original_path(Number) when is_binary(Number) ->
+original_path(Number, de, adv) when is_binary(Number) ->
     RPath = list_to_binary(?GET_ENV(srv_dir)),
-    <<RPath/binary, "/", Number/binary, ".pdf">>.
+    <<RPath/binary, "/", Number/binary, "_german.pdf">>;
+original_path(Number, _, adv) when is_binary(Number) ->
+    RPath = list_to_binary(?GET_ENV(srv_dir)),
+    <<RPath/binary, "/", Number/binary, ".pdf">>;
+
+original_path(Number, _Ln, adv_proj) when is_binary(Number) ->
+    RPath = list_to_binary(?GET_ENV(srv_dir)),
+    <<RPath/binary, "/", Number/binary, "_project.pdf">>;
+
+original_path(Number, Lang, Collection) when is_binary(Number) ->
+    io:format(" - Could not find file for ~s according to provided specifications\n\tLanguage: ~p\n\tCollection:~p\n"
+             ,[Number,Lang,Collection]),
+    nook.

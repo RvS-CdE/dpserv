@@ -2,6 +2,7 @@
 
 -export([cfg_get/1
         ,print_debug/3
+        ,err_404/2
         ]).
 
 cfg_get(Key) ->
@@ -18,3 +19,11 @@ print_debug(Module,Fields,Data) ->
    print_debugg([Field|Fields],[D|Data],Acc) ->
     Txt = io_lib:format("==\t~w:\t~p\n",[Field,D]),
     print_debugg(Fields,Data,[Txt|Acc]).
+
+err_404(Msg,Req) ->
+    Body = Msg,
+    R1 = cowboy_req:set_resp_header(<<"content-type">>, <<"text/html">>,Req),
+    R2 = cowboy_req:set_resp_header(<<"content-length">>, byte_size(Body), R1),
+    R3 = cowboy_req:set_resp_body(Body,R2),
+    R3.
+    
