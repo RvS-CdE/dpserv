@@ -4,7 +4,6 @@
 %%%-------------------------------------------------------------------
 
 -module(dpserv_app).
-
 -behaviour(application).
 -include("common_functions.hrl").
 
@@ -29,12 +28,10 @@ start(_StartType, _StartArgs) ->
 
               ]}
     ]),
-
     {ok, _} = cowboy:start_clear(http_listener, 100,
         [{port,9088}],
-        #{env => #{dispatch => Dispatch}, onresponse => fun output_hook/4}
-    ),
-
+        #{env => #{dispatch => Dispatch, onresponse => fun ?MODULE:output_hook/4}, onresponse => fun ?MODULE:output_hook/4}
+        ),
     dpserv_sup:start_link().
 
 %%--------------------------------------------------------------------
@@ -50,6 +47,7 @@ output_hook(404, Headers, <<>>, Req) ->
     cowboy_req:reply(404, HeadersOut, Body, Req);
 
 output_hook(C, _, _, Req) ->
+    lager:debug("Output sent by output_hook"),
     io:format("Output hook, status code: ~p\n",[C]),
     Req.
 

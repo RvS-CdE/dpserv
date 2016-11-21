@@ -1,0 +1,1 @@
+-define(EXPIRATION_DAYS,7).

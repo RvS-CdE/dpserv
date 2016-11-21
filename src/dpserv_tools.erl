@@ -21,9 +21,9 @@ print_debug(Module,Fields,Data) ->
     print_debugg(Fields,Data,[Txt|Acc]).
 
 err_404(Msg,Req) ->
+    dps:debug("404: ~s",[Msg]),
     Body = Msg,
-    R1 = cowboy_req:set_resp_header(<<"content-type">>, <<"text/html">>,Req),
+    R1 = cowboy_req:set_resp_header(<<"content-type">>, <<"text/plain">>,Req),
     R2 = cowboy_req:set_resp_header(<<"content-length">>, byte_size(Body), R1),
     R3 = cowboy_req:set_resp_body(Body,R2),
-    R3.
-    
+    cowboy_req:reply(404,R3).
