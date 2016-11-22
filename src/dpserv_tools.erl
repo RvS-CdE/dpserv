@@ -3,6 +3,7 @@
 -export([cfg_get/1
         ,print_debug/3
         ,err_404/2
+        ,err_500/2
         ]).
 
 cfg_get(Key) ->
@@ -20,10 +21,15 @@ print_debug(Module,Fields,Data) ->
     Txt = io_lib:format("==\t~w:\t~p\n",[Field,D]),
     print_debugg(Fields,Data,[Txt|Acc]).
 
-err_404(Msg,Req) ->
-    dps:debug("404: ~s",[Msg]),
+err_500(Msg,Req) -> err_cust(Msg, 500, Req).
+err_404(Msg,Req) -> err_cust(Msg, 404, Req).
+
+err_cust(Msg, Status, Req) when is_list(Msg) ->
+    err_cust(list_to_binary(Msg), Status, Req);
+err_cust(Msg, Status, Req) ->
+    dps:debug("~p: ~s",[Status,Msg]),
     Body = Msg,
     R1 = cowboy_req:set_resp_header(<<"content-type">>, <<"text/plain">>,Req),
     R2 = cowboy_req:set_resp_header(<<"content-length">>, byte_size(Body), R1),
     R3 = cowboy_req:set_resp_body(Body,R2),
-    cowboy_req:reply(404,R3).
+    cowboy_req:reply(Status,R3).

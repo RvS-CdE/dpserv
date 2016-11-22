@@ -23,8 +23,8 @@ start(_StartType, _StartArgs) ->
               ,{"/gutachten/:number",   dpserv_handler,#{collection => adv, lang => de}}
 
               ,{"/avis/:number/projet",        dpserv_handler,#{collection => adv_proj, lang => fr}}
-              ,{"/adviezen/:number/ontwerp",    dpserv_handler,#{collection => adv_proj, lang => nl}}
-              ,{"/gutachten/:number/entwurf",   dpserv_handler,#{collection => adv_proj, lang => de}}
+              ,{"/adviezen/:number/ontwerp",   dpserv_handler,#{collection => adv_proj, lang => nl}}
+              ,{"/gutachten/:number/entwurf",  dpserv_handler,#{collection => adv_proj, lang => de}}
 
               ]}
     ]),

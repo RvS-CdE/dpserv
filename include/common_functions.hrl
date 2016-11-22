@@ -5,3 +5,5 @@
                            dpserv_tools:print_debug(io_lib:format("~p:~p/~p",[_M5,_F5,_A5]),F12,D12) end()).
 
 -define(ERR_404,dpserv_tools:err_404).
+-define(ERR_500,dpserv_tools:err_500).
+-define(SH, cowboy_req:set_resp_header).

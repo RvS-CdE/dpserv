@@ -11,11 +11,14 @@
         ,resource_exists/2
         ,content_types_provided/2
         ,expires/2
+        ,forbidden/2
         ,is_authorized/2
         ,generate_etag/2
         ,known_methods/2
         ,last_modified/2
+        ,charsets_provided/2
         ,multiple_choices/2
+        ,service_available/2
         ]).
 
 -export([to_pdf/2
@@ -24,14 +27,20 @@
         ,terminate/3
         ]).
 
--record(state, {opts, adv_id, ext, client}).
--define(CL, S#state.client).
+-record(state, {opts, adv_id, ext, client,session}).
+-define(CL, io_lib:format("~s|~s",[S#state.client,S#state.session])).
 
 init(Req, Opts) ->
     Number = cowboy_req:binding(number,Req),
-    Client = number_prefix(Number),
-    dps:info("~s: Rest query initializing, serving ~s",[Client,Number]),
-    {cowboy_rest, Req, #state{opts = Opts, adv_id = number_prefix(Number), ext = number_suffix(Number), client = Client }}.
+    Client = get_client_id(Req),
+    Session = get_session_id(Req),
+    log_session(Req,Session),
+    %?DBG([headers, peer],[cowboy_req:headers(Req), cowboy_req:peer(Req)]),
+    {cowboy_rest, Req, #state{opts = Opts
+                             ,adv_id = number_prefix(Number)
+                             ,ext = number_suffix(Number)
+                             ,client = Client
+                             ,session = Session}}.
 
 allowed_methods(Req, S) ->
     dps:debug("~s: Allowed_methods",[?CL]),
@@ -47,7 +56,6 @@ resource_exists(Req, S) ->
         true -> {true, Req,S };
         false -> R = ?ERR_404(<<"Just Not There">>,Req),
                  {stop,R,S}
-        %false -> {stop, ?ERR_404(<<"Just Not There">>,Req), S}
     end.
 
 expires(Req,S) ->
@@ -66,27 +74,42 @@ generate_etag(Req,S) ->
 known_methods(Req,S) ->
     {[<<"GET">>,<<"OPTIONS">>], Req,S}.
 
+charsets_provided(Req,S) ->
+    {[<<"utf-8">>], Req,S}.
+
 last_modified(Req,S) ->
-    OPath = original_path(S#state.adv_id,maps:get(lang,S#state.opts), maps:get(collection,S#state.opts)),
+    OPath = original_path(S#state.adv_id, maps:get(lang,S#state.opts), maps:get(collection,S#state.opts)),
     {ok,I} = file:read_file_info(OPath),
     {I#file_info.ctime, Req,S}.
 
 multiple_choices(Req,S) ->
-    {true,Req,S}.
+    %% If no content type is specified (ie: no extension provided)
+    %% return true along prefered representation (pdf) and other representations (text,html)
+    {false,Req,S}.
 
-is_authorized(Req,S) ->
+forbidden(Req,S) ->
     Auth = case cowboy_req:method(Req) of
             <<"GET">> -> true;
             _ -> {false, <<"Sorry, bad method: Thanks for trying !">>} end,
-    dps:debug("~s: Authorized = ~p",[?CL, Auth]),
+    dps:debug("~s: Forbidden = ~p",[?CL, Auth]),
     {Auth, Req, S}.
 
-content_types_provided(Req, State) ->
-    {[
-        {<<"application/pdf">>, to_pdf}
-%       ,{{<<"text">>, <<"plain">>, []}, to_text}
-%       ,{{<<"text">>, <<"html">>, []}, to_html}
-    ], Req, State}.
+is_authorized(Req,S) ->
+    %% This is the place to handle IP logging and temporary banning
+    Client = S#state.client,
+    {true, Req, S}.
+
+content_types_provided(Req, S) ->
+    Pdf = {<<"application/pdf">>, to_pdf},
+    Txt = {<<"text/plain">>, to_text},
+    Html = {<<"text/html">>, to_html},
+    Out = case S#state.ext of
+            <<"pdf">> -> [Pdf];
+            <<"txt">> -> [Txt];
+            <<"html">> -> [Html];
+            undefined -> [Pdf,Html,Txt]
+          end,
+    {Out, Req, S}.
 
 to_pdf(Req,S) ->
     OPath = original_path(S#state.adv_id,maps:get(lang,S#state.opts), maps:get(collection,S#state.opts)),
@@ -97,20 +120,49 @@ to_pdf(Req,S) ->
           end,
     {Out, Req, S}.
 
-terminate(normal,_Req,_State) ->
+terminate(normal,_Req,S) ->
+    dps:info("~s: served ~s.~s",[?CL,S#state.adv_id, S#state.ext]),
     ok;
     terminate({throw,{dpserv,Err,Data}},_Req,S) ->
         dps:error("~s: dpserv experienced error ~p\n\tData: ~p\n\tState: ~p\n",[?CL,Err,Data,S]),
         ok;
     terminate(Reason,_Req,S) ->
-        dps:error("~s: dpserv handler terminating because \"~p\"\n",[?CL,Reason]),
+        dps:error("dpserv handler terminating because \"~p\"\nState:~p",[S,Reason]),
         ok.
 
-to_text(Req,State) ->
-    {<<"This should be a pure text version.">>, Req, State}.
+to_text(Req,S) ->
+    OPath = original_path(S#state.adv_id,maps:get(lang,S#state.opts), maps:get(collection,S#state.opts)),
+    case tika_query(OPath,"text/plain") of
+        {ok, Text} -> {Text
+                      ,Req
+                      %,?SH(<<"content-type">>,<<"text/plain; charset=utf-8">>,Req)
+                      ,S };
+        {error, Reason} -> dps:error("~s: Tika conversion failed: ~s",[?CL,Reason]),
+                           R = ?ERR_500("File conversion failed.",Req),
+                           {stop,R,S}
+    end.
 
-to_html(Req,State) ->
-    {<<"This should be a html version.">>, Req, State}.
+to_html(Req,S) ->
+    OPath = original_path(S#state.adv_id,maps:get(lang,S#state.opts), maps:get(collection,S#state.opts)),
+    case tika_query(OPath,"text/html") of
+        {ok, Raw} -> {Raw
+                     ,?SH(<<"content-type">>,<<"text/html; charset=utf-8">>,Req)
+                     ,S };
+        {error, Reason} -> dps:error("~s: Tika conversion failed: ~s",[?CL,Reason]),
+                           R = ?ERR_500("File conversion failed.",Req),
+                           {stop,R,S}
+    end.
+
+service_available(Req,S) ->
+    case S#state.ext of
+        <<"pdf">> -> {true,Req,S};
+        _ -> case httpc:request(get, {"http://localhost:10004/tika",[]}, [], []) of
+                {error,_} -> dps:warning("~s: Tika not available !",[?CL]),
+                             {false,Req,S};
+                {ok,_} ->    {true,Req,S}
+             end
+    end.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Internal Functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -130,6 +182,35 @@ original_path(Number, Lang, Collection) when is_binary(Number) ->
              ,[Number,Lang,Collection]),
     nook.
 
+get_client_id(Req) ->
+    case cowboy_req:header(<<"x-forwarded-for">>, Req, undefined) of
+        undefined -> {{A,B,C,D},_} = cowboy_req:peer(Req),
+                    P = <<".">>,
+                    [integer_to_binary(A),P
+                    ,integer_to_binary(B),P
+                    ,integer_to_binary(C),P
+                    ,integer_to_binary(D)];
+        ClientIp -> <<ClientIp/binary, "@w">>
+    end.
+
+get_session_id(Req) ->
+    H = erlang:phash2({cowboy_req:header(<<"user_agent">>,Req)
+                      ,get_client_id(Req)
+                      ,calendar:local_time()
+                      }
+                     ,16#ffffffff),
+    integer_to_list(H,16).
+
+log_session(Req,Session) ->
+    dps:info("~s|~s \"~s\" ~s ~s ~s"
+            ,[get_client_id(Req)
+             ,Session
+             ,cowboy_req:header(<<"user-agent">>,Req)
+             ,cowboy_req:uri(Req)
+             ,cowboy_req:header(<<"x-original-url">>,Req)
+             ,cowboy_req:qs(Req)
+             ]).
+
 number_prefix(Number) ->
     P = number_parts(Number),
     maps:get(prefix,P,undefined).
@@ -147,6 +228,18 @@ number_parts(Number) ->
         #{prefix => Acc, suffix => R};
     number_parts(<<C,R/binary>>,Acc) ->
         number_parts(R,<<Acc/binary,C>>).
+
+tika_query(Path,Format) ->
+    {ok,B} = file:read_file(Path),
+    R = httpc:request(put
+                     ,{"http://localhost:10004/tika",[{"Accept",Format},{"Accept-Encoding","identity"}],"application/pdf",B}
+                     ,[{timeout,5000},{connect_timeout,300}]
+                     ,[{full_result,true},{body_format,binary}]),
+    case R of
+        {error, Reason} -> {error, io_lib:format("request error: ~p",[Reason])};
+        {ok, {{_,200,_}, _, Body}} -> {ok,Body};
+        {ok, {Status,_, _}} -> {error, io_lib:format("unexpected response status: ~p",[Status])}
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Testing
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
