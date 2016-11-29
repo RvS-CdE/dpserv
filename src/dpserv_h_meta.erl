@@ -1,4 +1,4 @@
--module(dpserv_meta_handler).
+-module(dpserv_h_meta).
 -behaviour(cowboy_rest).
 
 -include("config.hrl").
@@ -36,7 +36,7 @@ init(Req,Opts) ->
     Lang = ?LN_TO_CODE(cowboy_req:binding(ln,Req)),
     Client = dpserv_tools:get_client_id(Req),
     Session = dpserv_tools:get_session_id(Req),
-    OPath = dpserv_tools:original_path(dpserv_tools:number_prefix(Number), Lang, maps:get(collection,Opts)),
+    OPath = dpserv_tools:original_path(dpserv_tools:number_prefix(Number), Lang, maps:get(store,Opts)),
     dpserv_tools:log_session(Req,Session),
     {cowboy_rest, Req, #state{opts = Opts
                              ,adv_id = dpserv_tools:number_prefix(Number)
@@ -136,17 +136,17 @@ doc_links(R,S) ->
         <<Base/binary,"/",Raw/binary>>;
 
     make_link(<<"next">>,_R,S,Base) ->
-        case dpserv_tools:getnext(S#state.adv_id, S#state.lang, maps:get(collection,S#state.opts)) of
+        case dpserv_tools:getnext(S#state.adv_id, S#state.lang, maps:get(store,S#state.opts)) of
             undefined -> undefined;
             NextRaw -> <<Base/binary,"/",NextRaw/binary,"/meta">>
         end;
     make_link(<<"previous">>,_R,S,Base) ->
-        case dpserv_tools:getprev(S#state.adv_id, S#state.lang, maps:get(collection,S#state.opts)) of
+        case dpserv_tools:getprev(S#state.adv_id, S#state.lang, maps:get(store,S#state.opts)) of
             undefined -> undefined;
             PrevRaw -> <<Base/binary,"/",PrevRaw/binary,"/meta">>
         end;
     make_link(<<"german_translation">>,R,S,_Base) ->
-        OPath = dpserv_tools:original_path(S#state.adv_id, de, maps:get(collection,S#state.opts)),
+        OPath = dpserv_tools:original_path(S#state.adv_id, de, maps:get(store,S#state.opts)),
         case filelib:is_file(OPath) of
             true -> NewB = get_hostbaseuri(R,S,?CODE_TO_LN(de)),
                     Raw = S#state.raw,

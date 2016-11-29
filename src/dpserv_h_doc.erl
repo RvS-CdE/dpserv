@@ -1,4 +1,4 @@
--module(dpserv_handler).
+-module(dpserv_h_doc).
 -behaviour(cowboy_rest).
 
 -include("config.hrl").
@@ -46,7 +46,7 @@ init(Req, Opts) ->
     Lang = ?LN_TO_CODE(cowboy_req:binding(ln,Req)),
     Client = get_client_id(Req),
     Session = get_session_id(Req),
-    OPath = dpserv_tools:original_path(number_prefix(Number), Lang, maps:get(collection,Opts)),
+    OPath = dpserv_tools:original_path(number_prefix(Number), Lang, maps:get(store,Opts)),
     log_session(Req,Session),
     S = #state{opts = Opts
               ,adv_id = number_prefix(Number)

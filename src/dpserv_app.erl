@@ -18,11 +18,15 @@ start(_StartType, _StartArgs) ->
     Dispatch = cowboy_router:compile([
         {'_', [{"/", test_handler, []}
               % Idea: use coll name as var, use constraint to orient
-              ,{"/1/:ln/:number",        dpserv_handler,      #{base => <<"/1">>, collection => adv}}
-              ,{"/1/:ln/:number/meta",   dpserv_meta_handler, #{base => <<"/1">>, collection => adv}}
-              ,{"/1/:ln/:number/projet", dpserv_handler,      #{base => <<"/1">>, collection => adv_proj, lang => fr}}
-              ,{"/1/:ln/:number/ontwerp", dpserv_handler,      #{base => <<"/1">>, collection => adv_proj, lang => nl}}
-              ,{"/1/:ln/:number/entwurf", dpserv_handler,      #{base => <<"/1">>, collection => adv_proj, lang => de}}
+              %% Single Documents
+              ,{"/1/:ln/:number",        dpserv_h_doc,      #{base => <<"/1">>, store => adv}}
+              ,{"/1/:ln/:number/meta",   dpserv_h_meta, #{base => <<"/1">>, store => adv}}
+              ,{"/1/:ln/:number/projet", dpserv_h_doc,      #{base => <<"/1">>, store => adv_proj, lang => fr}}
+              ,{"/1/:ln/:number/ontwerp", dpserv_h_doc,      #{base => <<"/1">>, store => adv_proj, lang => nl}}
+              ,{"/1/:ln/:number/entwurf", dpserv_h_doc,      #{base => <<"/1">>, store => adv_proj, lang => de}}
+
+              %% Document Collections
+              ,{"/1/:ln/:number/col/all",   dpserv_collection_handler, #{base => <<"/1">>, collection => all}}
 
               %,{"/avis/:number",        dpserv_handler,#{collection => adv, lang => fr}}
               %,{"/adviezen/:number",    dpserv_handler,#{collection => adv, lang => nl}}
