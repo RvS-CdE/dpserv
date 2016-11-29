@@ -17,6 +17,7 @@
         ,bin2hex/1
         ,getprev/3
         ,getnext/3
+        ,get_hostbaseuri/2 ,get_hostbaseuri/3
         ]).
 
 cfg_get(Key) ->
@@ -139,6 +140,17 @@ bin2hex(Bin) ->
 hex2bin(Hex) ->
     <<<<Z>> || <<X:8,Y:8>> <= Hex,Z <- [binary_to_integer(<<X,Y>>,16)]>>.
 
+get_hostbaseuri(R,S) ->
+    LnCode = cowboy_req:binding(ln,R),
+    get_hostbaseuri(R,S,LnCode).
+
+get_hostbaseuri(R,Base,LnCode) ->
+    Port = case cowboy_req:port(R) of
+            80 -> <<"">>;
+            Oth -> I2B = integer_to_binary(Oth),
+                   <<":",I2B/binary>> end,
+    Host = cowboy_req:host(R),
+    <<"http://",Host/binary,Port/binary,Base/binary, "/", LnCode/binary>>.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Testing
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -ifdef(TEST).

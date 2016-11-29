@@ -29,7 +29,7 @@
 
 -define(CL, io_lib:format("~s|~s",[S#state.client,S#state.session])).
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% MISC OTP
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% MISC OTP
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 init(Req,Opts) ->
     Number = cowboy_req:binding(number,Req),
@@ -102,15 +102,15 @@ doc_meta(R,S) ->
      }.
 
 doc_links(R,S) ->
-    ?DBG([headers, peer, path, path_info, host, host_info, port, uri]
-        ,[cowboy_req:headers(R)
-         ,cowboy_req:peer(R)
-         ,cowboy_req:path(R)
-         ,cowboy_req:path_info(R)
-         ,cowboy_req:host(R)
-         ,cowboy_req:host_info(R)
-         ,cowboy_req:port(R)
-         ,cowboy_req:uri(R)]),
+    %?DBG([headers, peer, path, path_info, host, host_info, port, uri]
+    %    ,[cowboy_req:headers(R)
+    %     ,cowboy_req:peer(R)
+    %     ,cowboy_req:path(R)
+    %     ,cowboy_req:path_info(R)
+    %     ,cowboy_req:host(R)
+    %     ,cowboy_req:host_info(R)
+    %     ,cowboy_req:port(R)
+    %     ,cowboy_req:uri(R)]),
     Base = get_hostbaseuri(R,S),
     lists:foldl(fun(Link,Acc) ->
                 case make_link(Link,R,S,Base) of
@@ -191,22 +191,13 @@ file_md5(Path) ->
         Digest = crypto:hash_final(Context),
         dpserv_tools:bin2hex(Digest).
 
+%% Inspiration : http://stackoverflow.com/users/1691583/viacheslav-kovalev @ http://stackoverflow.com/questions/28887695/erlang-converting-timestamp-to-year-month-daythourminsecz-format
 mktime(Datetime) ->
     {{Year, Month, Day}, {Hour, Minute, Second}} = Datetime,
     list_to_binary(lists:flatten(io_lib:format("~4..0w-~2..0w-~2..0wT~2..0w:~2..0w:~2..0w",[Year,Month,Day,Hour,Minute,Second]))).
 
-get_hostbaseuri(R,S) ->
-    LnCode = cowboy_req:binding(ln,R),
-    get_hostbaseuri(R,S,LnCode).
-
-get_hostbaseuri(R,S,LnCode) ->
-    Port = case cowboy_req:port(R) of
-            80 -> <<"">>;
-            Oth -> I2B = integer_to_binary(Oth),
-                   <<":",I2B/binary>> end,
-    Host = cowboy_req:host(R),
-    Base = maps:get(base, S#state.opts),
-    <<"http://",Host/binary,Port/binary,Base/binary, "/", LnCode/binary>>.
+get_hostbaseuri(R,S) -> dpserv_tools:get_hostbaseuri(R,maps:get(base,S#state.opts)).
+get_hostbaseuri(R,S,L) -> dpserv_tools:get_hostbaseuri(R,maps:get(base,S#state.opts),L).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Testing
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
