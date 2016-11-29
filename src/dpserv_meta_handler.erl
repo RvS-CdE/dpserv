@@ -18,22 +18,33 @@
 -export([to_json/2
         ]).
 
--record(state, {opts, adv_id, oPath, client, session, meta}).
+-record(state, {opts :: list()
+               ,adv_id :: binary()
+               ,raw :: binary()
+               ,oPath :: binary()
+               ,client :: binary()
+               ,session :: list()
+               ,meta :: 'undefined' | map()
+               ,lang :: atom() }).
+
 -define(CL, io_lib:format("~s|~s",[S#state.client,S#state.session])).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% MISC OTP
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 init(Req,Opts) ->
     Number = cowboy_req:binding(number,Req),
+    Lang = ?LN_TO_CODE(cowboy_req:binding(ln,Req)),
     Client = dpserv_tools:get_client_id(Req),
     Session = dpserv_tools:get_session_id(Req),
-    OPath = dpserv_tools:original_path(Number,maps:get(lang,Opts), maps:get(collection,Opts)),
+    OPath = dpserv_tools:original_path(dpserv_tools:number_prefix(Number), Lang, maps:get(collection,Opts)),
     dpserv_tools:log_session(Req,Session),
     {cowboy_rest, Req, #state{opts = Opts
                              ,adv_id = dpserv_tools:number_prefix(Number)
+                             ,raw = Number
                              ,oPath = OPath
                              ,client = Client
-                             ,session = Session}}.
+                             ,session = Session
+                             ,lang = Lang}}.
 
 terminate(normal,_Req,S) ->
     dps:info("~s: served ~s meta",[?CL,S#state.adv_id]),
@@ -85,25 +96,76 @@ doc_meta(R,S) ->
     #{<<"id">> => S#state.adv_id
      ,<<"size">> => I#file_info.size
      ,<<"mtime">> => mktime(I#file_info.mtime)
+     ,<<"ctime">> => mktime(I#file_info.ctime)
      ,<<"md5">> => file_md5(S#state.oPath)
      ,<<"links">> => doc_links(R,S)
      }.
 
 doc_links(R,S) ->
-    lists:map(fun(Link) ->
-                #{<<"rel">> => Link
-                 ,<<"href">> => make_link(Link,R,S) }
+    ?DBG([headers, peer, path, path_info, host, host_info, port, uri]
+        ,[cowboy_req:headers(R)
+         ,cowboy_req:peer(R)
+         ,cowboy_req:path(R)
+         ,cowboy_req:path_info(R)
+         ,cowboy_req:host(R)
+         ,cowboy_req:host_info(R)
+         ,cowboy_req:port(R)
+         ,cowboy_req:uri(R)]),
+    Base = get_hostbaseuri(R,S),
+    lists:foldl(fun(Link,Acc) ->
+                case make_link(Link,R,S,Base) of
+                    undefined -> Acc;
+                    Url -> [#{<<"rel">> => Link ,<<"href">> => Url } | Acc]
+                end
               end,
+            [],
             [<<"self">>
             ,<<"next">>
             ,<<"previous">>
             ,<<"collection">>
             ,<<"content">>
             ,<<"project">>
-            ,<<"de">>]).
+            ,<<"german_translation">>]).
 
-    make_link(_,R,S) ->
-        <<"http://localhost/somewhere">>.
+    make_link(<<"self">>,_R,S,Base) ->
+        Raw = S#state.raw,
+        <<Base/binary,"/",Raw/binary,"/meta">>;
+
+    make_link(<<"content">>,_R,S,Base) ->
+        Raw = S#state.raw,
+        <<Base/binary,"/",Raw/binary>>;
+
+    make_link(<<"next">>,_R,S,Base) ->
+        case dpserv_tools:getnext(S#state.adv_id, S#state.lang, maps:get(collection,S#state.opts)) of
+            undefined -> undefined;
+            NextRaw -> <<Base/binary,"/",NextRaw/binary,"/meta">>
+        end;
+    make_link(<<"previous">>,_R,S,Base) ->
+        case dpserv_tools:getprev(S#state.adv_id, S#state.lang, maps:get(collection,S#state.opts)) of
+            undefined -> undefined;
+            PrevRaw -> <<Base/binary,"/",PrevRaw/binary,"/meta">>
+        end;
+    make_link(<<"german_translation">>,R,S,_Base) ->
+        OPath = dpserv_tools:original_path(S#state.adv_id, de, maps:get(collection,S#state.opts)),
+        case filelib:is_file(OPath) of
+            true -> NewB = get_hostbaseuri(R,S,?CODE_TO_LN(de)),
+                    Raw = S#state.raw,
+                    <<NewB/binary,"/",Raw/binary>>;
+            false -> undefined
+        end;
+    make_link(<<"project">>,_R,S,Base) ->
+        OPath = dpserv_tools:original_path(S#state.adv_id, S#state.lang, adv_proj),
+        case filelib:is_file(OPath) of
+            true -> Raw = S#state.raw,
+                    Proj = case S#state.lang of
+                            fr -> <<"projet">>;
+                            nl -> <<"ontwerp">>;
+                            de -> <<"entwurf">> end,
+                    <<Base/binary,"/",Raw/binary, "/", Proj/binary>>;
+            false -> undefined
+        end;
+    make_link(_,_,_,_) ->
+        undefined.
 
 file_md5(Path) ->
     Context = crypto:hash_init(md5),
@@ -132,6 +194,19 @@ file_md5(Path) ->
 mktime(Datetime) ->
     {{Year, Month, Day}, {Hour, Minute, Second}} = Datetime,
     list_to_binary(lists:flatten(io_lib:format("~4..0w-~2..0w-~2..0wT~2..0w:~2..0w:~2..0w",[Year,Month,Day,Hour,Minute,Second]))).
+
+get_hostbaseuri(R,S) ->
+    LnCode = cowboy_req:binding(ln,R),
+    get_hostbaseuri(R,S,LnCode).
+
+get_hostbaseuri(R,S,LnCode) ->
+    Port = case cowboy_req:port(R) of
+            80 -> <<"">>;
+            Oth -> I2B = integer_to_binary(Oth),
+                   <<":",I2B/binary>> end,
+    Host = cowboy_req:host(R),
+    Base = maps:get(base, S#state.opts),
+    <<"http://",Host/binary,Port/binary,Base/binary, "/", LnCode/binary>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Testing
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

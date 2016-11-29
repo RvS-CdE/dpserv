@@ -18,13 +18,23 @@ start(_StartType, _StartArgs) ->
     Dispatch = cowboy_router:compile([
         {'_', [{"/", test_handler, []}
               % Idea: use coll name as var, use constraint to orient
-              ,{"/avis/:number",        dpserv_handler,#{collection => adv, lang => fr}}
-              ,{"/adviezen/:number",    dpserv_handler,#{collection => adv, lang => nl}}
-              ,{"/gutachten/:number",   dpserv_handler,#{collection => adv, lang => de}}
+              ,{"/1/:ln/:number",        dpserv_handler,      #{base => <<"/1">>, collection => adv}}
+              ,{"/1/:ln/:number/meta",   dpserv_meta_handler, #{base => <<"/1">>, collection => adv}}
+              ,{"/1/:ln/:number/projet", dpserv_handler,      #{base => <<"/1">>, collection => adv_proj, lang => fr}}
+              ,{"/1/:ln/:number/ontwerp", dpserv_handler,      #{base => <<"/1">>, collection => adv_proj, lang => nl}}
+              ,{"/1/:ln/:number/entwurf", dpserv_handler,      #{base => <<"/1">>, collection => adv_proj, lang => de}}
 
-              ,{"/avis/:number/projet",        dpserv_handler,#{collection => adv_proj, lang => fr}}
-              ,{"/adviezen/:number/ontwerp",   dpserv_handler,#{collection => adv_proj, lang => nl}}
-              ,{"/gutachten/:number/entwurf",  dpserv_handler,#{collection => adv_proj, lang => de}}
+              %,{"/avis/:number",        dpserv_handler,#{collection => adv, lang => fr}}
+              %,{"/adviezen/:number",    dpserv_handler,#{collection => adv, lang => nl}}
+              %,{"/gutachten/:number",   dpserv_handler,#{collection => adv, lang => de}}
+
+              %,{"/avis/:number/meta",        dpserv_meta_handler,#{collection => adv, lang => fr}}
+              %,{"/adviezen/:number/meta",    dpserv_meta_handler,#{collection => adv, lang => nl}}
+              %,{"/gutachten/:number/meta",   dpserv_meta_handler,#{collection => adv, lang => de}}
+
+              %,{"/avis/:number/projet",        dpserv_handler,#{collection => adv_proj, lang => fr}}
+              %,{"/adviezen/:number/ontwerp",   dpserv_handler,#{collection => adv_proj, lang => nl}}
+              %,{"/gutachten/:number/entwurf",  dpserv_handler,#{collection => adv_proj, lang => de}}
 
               ]}
     ]),
