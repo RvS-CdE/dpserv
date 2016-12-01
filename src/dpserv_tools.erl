@@ -6,6 +6,7 @@
 -export([cfg_get/1
         ,print_debug/3
         ,err_404/2
+        ,err_422/2
         ,err_500/2
         ,get_client_id/1
         ,get_session_id/1
@@ -18,6 +19,7 @@
         ,getprev/3
         ,getnext/3
         ,get_hostbaseuri/2 ,get_hostbaseuri/3
+        ,params_get/2
         ]).
 
 cfg_get(Key) ->
@@ -37,6 +39,7 @@ print_debug(Module,Fields,Data) ->
 
 err_500(Msg,Req) -> err_cust(Msg, 500, Req).
 err_404(Msg,Req) -> err_cust(Msg, 404, Req).
+err_422(Msg,Req) -> err_cust(Msg, 422, Req).
 
 err_cust(Msg, Status, Req) when is_list(Msg) ->
     err_cust(list_to_binary(Msg), Status, Req);
@@ -151,6 +154,16 @@ get_hostbaseuri(R,Base,LnCode) ->
                    <<":",I2B/binary>> end,
     Host = cowboy_req:host(R),
     <<"http://",Host/binary,Port/binary,Base/binary, "/", LnCode/binary>>.
+params_get(Pars,R) ->
+    params_get(Pars,cowboy_req:parse_qs(R),#{}).
+
+    params_get([],_,Acc) -> Acc;
+    params_get([H|T],QS,Acc) when is_atom(H) ->
+        Key = list_to_binary(atom_to_list(H)),
+        NAcc = Acc#{ H => proplists:get_value(Key,QS,undefined)},
+        %NAcc = [{H,proplists:get_value(Key,QS,undefined)} | Acc],
+        params_get(T,QS,NAcc).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Testing
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -ifdef(TEST).

@@ -193,8 +193,8 @@ file_md5(Path) ->
 
 %% Inspiration : http://stackoverflow.com/users/1691583/viacheslav-kovalev @ http://stackoverflow.com/questions/28887695/erlang-converting-timestamp-to-year-month-daythourminsecz-format
 mktime(Datetime) ->
-    {{Year, Month, Day}, {Hour, Minute, Second}} = Datetime,
-    list_to_binary(lists:flatten(io_lib:format("~4..0w-~2..0w-~2..0wT~2..0w:~2..0w:~2..0w",[Year,Month,Day,Hour,Minute,Second]))).
+    iso8601:format(Datetime).
+    %list_to_binary(lists:flatten(io_lib:format("~4..0w-~2..0w-~2..0wT~2..0w:~2..0w:~2..0w",[Year,Month,Day,Hour,Minute,Second]))).
 
 get_hostbaseuri(R,S) -> dpserv_tools:get_hostbaseuri(R,maps:get(base,S#state.opts)).
 get_hostbaseuri(R,S,L) -> dpserv_tools:get_hostbaseuri(R,maps:get(base,S#state.opts),L).

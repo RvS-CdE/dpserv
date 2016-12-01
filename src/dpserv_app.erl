@@ -26,7 +26,7 @@ start(_StartType, _StartArgs) ->
               ,{"/1/:ln/:number/entwurf", dpserv_h_doc,      #{base => <<"/1">>, store => adv_proj, lang => de}}
 
               %% Document Collections
-              ,{"/1/:ln/col/all",   dpserv_h_collection, #{base => <<"/1">>, collection => all}}
+              ,{"/1/:ln/col/:collection",   dpserv_h_collection, #{base => <<"/1">>}}
 
               %,{"/avis/:number",        dpserv_handler,#{collection => adv, lang => fr}}
               %,{"/adviezen/:number",    dpserv_handler,#{collection => adv, lang => nl}}

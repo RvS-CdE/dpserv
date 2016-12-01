@@ -56,7 +56,6 @@ init(Req, Opts) ->
               ,session = Session
               ,oPath = OPath
               ,lang = Lang},
-    ?DBG([headers, peer, state],[cowboy_req:headers(Req), cowboy_req:peer(Req),S]),
     {cowboy_rest, Req, S }.
 
 terminate(normal,_Req,S) ->
@@ -69,16 +68,13 @@ terminate(normal,_Req,S) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% COWBOY Rest Handles
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 allowed_methods(Req, S) ->
-    io:format("allowed_methods",[]),
     dps:debug("~s: Allowed_methods",[?CL]),
     {[<<"GET">>], Req, S}.
 
 allow_missing_post(Req, S) ->
-    io:format("allowed_missing_post",[]),
     {false, Req,S}.
 
 resource_exists(Req, S) ->
-    io:format("resource_exists",[]),
     dps:debug("~s: Resource exist check (state: ~p)",[?CL,S]),
     case filelib:is_file(S#state.oPath) of
         true -> {true, Req,S };
@@ -87,40 +83,33 @@ resource_exists(Req, S) ->
     end.
 
 expires(Req,S) ->
-    io:format("expires",[]),
     {LD, LT} = calendar:local_time(),
     ED = calendar:gregorian_days_to_date(calendar:date_to_gregorian_days(LD) + ?EXPIRATION_DAYS),
     dps:debug("~s: Expires = ~p",[?CL, ED]),
     {{ED,LT}, Req, S}.
 
 generate_etag(Req,S) ->
-    io:format("etag",[]),
     {ok,I} = file:read_file_info(S#state.oPath),
     Etag = {strong, integer_to_binary(erlang:phash2({I#file_info.size, I#file_info.mtime}, 16#ffffff))},
     dps:debug("~s: Etag = ~p",[?CL, Etag]),
     {Etag,Req,S}.
 
 known_methods(Req,S) ->
-    io:format("methods",[]),
     {[<<"GET">>,<<"OPTIONS">>], Req,S}.
 
 charsets_provided(Req,S) ->
-    io:format("charsets",[]),
     {[<<"utf-8">>], Req,S}.
 
 last_modified(Req,S) ->
-    io:format("lastmod",[]),
     {ok,I} = file:read_file_info(S#state.oPath),
     {I#file_info.ctime, Req,S}.
 
 multiple_choices(Req,S) ->
-    io:format("multchoic",[]),
     %% If no content type is specified (ie: no extension provided)
     %% return true along prefered representation (pdf) and other representations (text,html)
     {false,Req,S}.
 
 forbidden(Req,S) ->
-    io:format("forbidden",[]),
     Auth = case cowboy_req:method(Req) of
             <<"GET">> -> false;
             _ -> {true, <<"Sorry, bad method: Thanks for trying !">>} end,
@@ -128,13 +117,11 @@ forbidden(Req,S) ->
     {Auth, Req, S}.
 
 is_authorized(Req,S) ->
-    io:format("auth",[]),
     %% This is the place to handle IP logging and temporary banning
     _Client = S#state.client,
     {true, Req, S}.
 
 content_types_provided(Req, S) ->
-    io:format("ctypes_provided",[]),
     Pdf = {<<"application/pdf">>, to_pdf},
     Txt = {<<"text/plain">>, to_text},
     Html = {<<"text/html">>, to_html},
@@ -147,7 +134,6 @@ content_types_provided(Req, S) ->
     {Out, Req, S}.
 
 service_available(Req,S) ->
-    io:format("service_avail",[]),
     case S#state.ext of
         <<"pdf">> -> {true,Req,S};
         _ -> case httpc:request(get, {"http://localhost:10004/tika",[]}, [], []) of
