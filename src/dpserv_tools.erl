@@ -20,6 +20,8 @@
         ,getnext/3
         ,get_hostbaseuri/2 ,get_hostbaseuri/3
         ,params_get/2
+        ,link_factory/3
+        ,filter_filelist/2
         ]).
 
 cfg_get(Key) ->
@@ -143,9 +145,9 @@ bin2hex(Bin) ->
 hex2bin(Hex) ->
     <<<<Z>> || <<X:8,Y:8>> <= Hex,Z <- [binary_to_integer(<<X,Y>>,16)]>>.
 
-get_hostbaseuri(R,S) ->
+get_hostbaseuri(R,Base) ->
     LnCode = cowboy_req:binding(ln,R),
-    get_hostbaseuri(R,S,LnCode).
+    get_hostbaseuri(R,Base,LnCode).
 
 get_hostbaseuri(R,Base,LnCode) ->
     Port = case cowboy_req:port(R) of
@@ -164,6 +166,21 @@ params_get(Pars,R) ->
         %NAcc = [{H,proplists:get_value(Key,QS,undefined)} | Acc],
         params_get(T,QS,NAcc).
 
+link_factory(Def, R ,Opts) ->
+    Base = get_hostbaseuri(R,maps:get(base,Opts)),
+    lists:map(fun(K) ->
+                Lnk = maps:get(K, Def),
+                #{<<"rel">> => K, <<"href">> => <<Base/binary, Lnk/binary>>}
+                end
+             ,maps:keys(Def)).
+
+filter_filelist(adv,In) ->
+    {ok,Re} = re:compile("^[0-9]*\.(pdf|PDF)$"),
+    lists:filter(fun(Name) ->
+                    Res = re:run(Name,Re),
+                    Res =/= nomatch
+                    end
+                ,In).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Testing
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -ifdef(TEST).
@@ -184,5 +201,10 @@ number_suffix_test_() ->
     [?_assertEqual(undefined, number_suffix(Test1))
     ,?_assertEqual(<<"pdf">>, number_suffix(Test2))
     ,?_assertEqual(<<"html">>, number_suffix(Test3))
+    ].
+
+filterFiles_test_() ->
+    L = ["47345_project.pdf","60348.pdf","48805_project.pdf", "48805.pdf","47351_project.pdf","53605.pdf"],
+    [?_assertEqual(["60348.pdf","48805.pdf","53605.pdf"], dpserv_tools:filter_filelist(adv,L))
     ].
 -endif.

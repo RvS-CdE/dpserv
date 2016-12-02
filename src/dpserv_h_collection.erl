@@ -1,7 +1,6 @@
 -module(dpserv_h_collection).
 -behaviour(cowboy_rest).
 
-
 -include("config.hrl").
 -include("common_functions.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -28,10 +27,7 @@
                ,params :: 'undefined' | map()
                }).
 
--define(CL, io_lib:format("~s|~s",[S#state.client,S#state.session])).
 
--define(COLLECTIONS,[<<"all">>,<<"ctime">>]).
--define(COL_DATE_LIMITED,[<<"ctime">>]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% MISC OTP
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -122,7 +118,7 @@ to_json(Req,S) ->
 collection_make(ctime,R,S) ->
     {ok,All} = file:list_dir(?GET_ENV(srv_dir)),
     Params = S#state.params,
-    AdvFiles = filter_filelist(adv,All),
+    AdvFiles = dpserv_tools:filter_filelist(adv,All),
     BefCheck = case maps:get(to,Params) of
                 undefined -> fun(_) -> true end;
                 Date -> Mark = calendar:datetime_to_gregorian_seconds(Date),
@@ -193,13 +189,6 @@ extractInt(Num) ->
     intParts([H|T],Acc) ->
         intParts(T,[H|Acc]).
 
-filter_filelist(adv,In) ->
-    {ok,Re} = re:compile("^[0-9]*\.(pdf|PDF)$"),
-    lists:filter(fun(Name) ->
-                    Res = re:run(Name,Re),
-                    Res =/= nomatch
-                    end
-                ,In).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Testing
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -211,8 +200,4 @@ extractInt_test_() ->
     ,?_assertEqual(<<"1409">>,extractInt("1409"))
     ].
 
-filterFiles_test_() ->
-    L = ["47345_project.pdf","60348.pdf","48805_project.pdf", "48805.pdf","47351_project.pdf","53605.pdf"],
-    [?_assertEqual(["60348.pdf","48805.pdf","53605.pdf"], filter_filelist(adv,L))
-    ].
 -endif.

@@ -18,15 +18,19 @@ start(_StartType, _StartArgs) ->
     Dispatch = cowboy_router:compile([
         {'_', [{"/", test_handler, []}
               % Idea: use coll name as var, use constraint to orient
+              %% Pages
+              ,{"/1/:ln/", dpserv_h_browsing, #{base=> <<"/1">>, store=> adv, page => home_page}}
+              ,{"/1/:ln/collections", dpserv_h_browsing, #{base => <<"/1">>, store => adv, page => collection_list}}
+
               %% Single Documents
-              ,{"/1/:ln/:number",        dpserv_h_doc,      #{base => <<"/1">>, store => adv}}
-              ,{"/1/:ln/:number/meta",   dpserv_h_meta, #{base => <<"/1">>, store => adv}}
-              ,{"/1/:ln/:number/projet", dpserv_h_doc,      #{base => <<"/1">>, store => adv_proj, lang => fr}}
-              ,{"/1/:ln/:number/ontwerp", dpserv_h_doc,      #{base => <<"/1">>, store => adv_proj, lang => nl}}
-              ,{"/1/:ln/:number/entwurf", dpserv_h_doc,      #{base => <<"/1">>, store => adv_proj, lang => de}}
+              ,{"/1/:ln/:number",         dpserv_h_doc,    #{base => <<"/1">>, store => adv}}
+              ,{"/1/:ln/:number/meta",    dpserv_h_meta,   #{base => <<"/1">>, store => adv}}
+              ,{"/1/:ln/:number/projet",  dpserv_h_doc,    #{base => <<"/1">>, store => adv_proj, lang => fr}}
+              ,{"/1/:ln/:number/ontwerp", dpserv_h_doc,    #{base => <<"/1">>, store => adv_proj, lang => nl}}
+              ,{"/1/:ln/:number/entwurf", dpserv_h_doc,    #{base => <<"/1">>, store => adv_proj, lang => de}}
 
               %% Document Collections
-              ,{"/1/:ln/col/:collection",   dpserv_h_collection, #{base => <<"/1">>}}
+              ,{"/1/:ln/col/:collection",   dpserv_h_collection, #{base => <<"/1">>, store=> adv, base => <<"/1">>}}
 
               %,{"/avis/:number",        dpserv_handler,#{collection => adv, lang => fr}}
               %,{"/adviezen/:number",    dpserv_handler,#{collection => adv, lang => nl}}
