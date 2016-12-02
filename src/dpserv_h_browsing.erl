@@ -36,6 +36,7 @@ init(Req,Opts) ->
               ,store = maps:get(store,Opts)
               },
     %?DBG([state],[S]),
+    dpserv_tools:log_session(Req,S#state.session),
     dps:debug("~s: Preparing query for page ~p",[?CL,S#state.page]),
     {cowboy_rest, Req, S}.
 
@@ -83,31 +84,37 @@ to_json(Req,S) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Internal Functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 page_make(R, S = #state{page = home_page}) ->
+    Def = #{<<"self">> => <<"/">>
+            ,<<"collections">> => <<"/collections">>
+            },
+    Base = dpserv_tools:get_hostbaseuri(R, maps:get(base,S#state.opts)),
     #{<<"date">> => iso8601:format(calendar:local_time())
     ,<<"last_update">> => iso8601:format(dpserv_store:last_modified(S#state.store))
     ,<<"api_version">> => ?API_VERSION
     ,<<"req_limiting_triggered">> => false
     ,<<"service_limits">> => ?SERVICE_LIMITS
-    ,<<"links">> => links_make(home_page, R, S)
+    ,<<"links">> => dpserv_tools:link_factory(Def,R,S#state.opts)
+    ,<<"content">> => [ #{<<"id">> => <<"document_url_mask">>
+                         ,<<"placeholder">> => <<"{DOCID}">>
+                         ,<<"url_template">> => <<Base/binary,"/{DOCID}/meta">>
+                         }]
     };
 
 page_make(R, S = #state{page = collection_list}) ->
-    Def = lists:foldl(fun(Col,In) ->
-                        In#{Col => <<"/col/",Col/binary>>}
-                        end
-                     ,#{<<"self">> => <<"/collections">>}
-                     ,?COLLECTIONS),
+    Def = #{<<"self">> => <<"/collections">>},
+    Content = lists:map(fun(Col) ->
+                             CDef = #{<<"self">> => <<"/col/", Col/binary>>},
+                             #{<<"id">> => Col
+                              ,<<"links">> => dpserv_tools:link_factory(CDef, R, S#state.opts)
+                              }
+                             end
+                          ,?COLLECTIONS),
     #{<<"colllection_count">> => length(?COLLECTIONS)
      ,<<"collections">> => ?COLLECTIONS
      ,<<"time_constrained">> => ?COL_DATE_LIMITED
      ,<<"links">> => dpserv_tools:link_factory(Def,R, S#state.opts)
+     ,<<"content">> => Content
      }.
-
-links_make(home_page,R,S) ->
-    Def = #{<<"self">> => <<"/">>
-            ,<<"collections">> => <<"/collections">>
-            },
-    dpserv_tools:link_factory(Def,R,S#state.opts).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Testing

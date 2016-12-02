@@ -39,6 +39,7 @@ init(Req,Opts) ->
               ,params = dpserv_tools:params_get([from,to],Req)
               },
     %?DBG([state],[S]),
+    dpserv_tools:log_session(Req,S#state.session),
     dps:debug("~s: Preparing query for collection ~p with parameters ~p",[?CL,S#state.col,S#state.params]),
     {cowboy_rest, Req, S}.
 

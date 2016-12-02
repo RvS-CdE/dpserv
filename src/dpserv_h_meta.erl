@@ -61,7 +61,7 @@ allowed_methods(Req, S) ->
     {[<<"GET">>], Req, S}.
 
 resource_exists(Req, S) ->
-    dps:debug("~s: Resource exist check (state: ~p)",[?CL,S]),
+    dps:debug("~s: Resource exist check",[?CL]),
     case filelib:is_file(S#state.oPath) of
         true -> {true, Req,S };
         false -> R = ?ERR_404(<<"Just Not There">>,Req),
