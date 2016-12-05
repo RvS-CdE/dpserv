@@ -77,13 +77,12 @@ charsets_provided(Req,S) ->
 content_types_provided(Req, S) ->
     Types = [{<<"application/json">>, to_json}
             ],
-    SNew = S#state{meta = doc_meta(Req,S)},
-    {Types, Req, SNew}.
+    {Types, Req, S}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Exported Functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 to_json(Req,S) ->
-    Payload = jiffy:encode(S#state.meta, [pretty]),
+    Payload = jiffy:encode(doc_meta(Req,S), [pretty]),
     {Payload, Req, S}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Internal Functions

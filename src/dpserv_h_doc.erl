@@ -145,6 +145,7 @@ service_available(Req,S) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Exported Functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 to_pdf(Req,S) ->
+    dps:debug("~s: outputting in pdf",[?CL]),
     Out = case file:read_file(S#state.oPath) of
             {ok, Bin} -> Bin;
             {error, enoent} -> throw({dpserv,nosuchfile,S#state.oPath});
@@ -153,6 +154,7 @@ to_pdf(Req,S) ->
     {Out, Req, S}.
 
 to_text(Req,S) ->
+    dps:debug("~s: outputting in text",[?CL]),
     case tika_query(S#state.oPath,"text/plain") of
         {ok, Text} -> {Text
                       ,Req
@@ -164,6 +166,7 @@ to_text(Req,S) ->
     end.
 
 to_html(Req,S) ->
+    dps:debug("~s: outputting in html",[?CL]),
     case tika_query(S#state.oPath,"text/html") of
         {ok, Raw} -> {Raw
                      ,?SH(<<"content-type">>,<<"text/html; charset=utf-8">>,Req)
