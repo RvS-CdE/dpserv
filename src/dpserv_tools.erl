@@ -22,12 +22,13 @@
         ,params_get/2
         ,link_factory/3
         ,filter_filelist/2
+        ,get_env_def/0
         ]).
 
 cfg_get(Key) ->
-    case application:get_env(dpserv, Key) of
-        {ok,Val} -> Val;
-        undefined -> throw({dpserv,undefined_cfg,Key})
+    case proplists:get_value(Key,get_env_def()) of
+        undefined -> throw({dpserv,undefined_cfg,Key});
+        Val -> Val
     end.
 
 print_debug(Module,Fields,Data) ->
@@ -181,6 +182,15 @@ filter_filelist(adv,In) ->
                     Res =/= nomatch
                     end
                 ,In).
+
+
+get_env_def() ->
+    case application:get_env(dpserv,env) of
+        {ok,Env} -> {ok,Def} = application:get_env(dpserv,Env),
+                    Def;
+        _ -> {ok,Def} = application:get_env(dpserv,prod),
+             Def
+    end.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Testing
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -ifdef(TEST).

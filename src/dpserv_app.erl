@@ -46,8 +46,9 @@ start(_StartType, _StartArgs) ->
 
               ]}
     ]),
+    dps:info("Booting dpserv on port ~p",[get_port()]),
     {ok, _} = cowboy:start_clear(http_listener, 100,
-        [{port,9088}],
+        [{port,get_port()}],
         #{env => #{dispatch => Dispatch, onresponse => fun ?MODULE:output_hook/4}, onresponse => fun ?MODULE:output_hook/4}
         ),
     dpserv_sup:start_link().
@@ -72,3 +73,14 @@ output_hook(C, _, _, Req) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
+get_port() ->
+    EnvDef = get_env_def(),
+    proplists:get_value(port,EnvDef).
+
+get_env_def() ->
+    case application:get_env(dpserv,env) of
+        {ok,Env} -> {ok,Def} = application:get_env(dpserv,Env),
+                    Def;
+        _ -> {ok,Def} = application:get_env(dpserv,prod),
+             Def
+    end.
