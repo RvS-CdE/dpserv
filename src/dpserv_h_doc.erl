@@ -128,7 +128,7 @@ content_types_provided(Req, S) ->
             <<"pdf">> -> [Pdf];
             <<"txt">> -> [Txt];
             <<"html">> -> [Html];
-            undefined -> [Pdf,Html,Txt]
+            undefined -> [Pdf]
           end,
     {Out, Req, S}.
 
