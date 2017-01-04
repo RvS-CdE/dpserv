@@ -150,12 +150,16 @@ get_hostbaseuri(R,Base) ->
     get_hostbaseuri(R,Base,LnCode).
 
 get_hostbaseuri(R,Base,LnCode) ->
-    Port = case cowboy_req:port(R) of
-            80 -> <<"">>;
-            Oth -> I2B = integer_to_binary(Oth),
-                   <<":",I2B/binary>> end,
-    Host = cowboy_req:host(R),
-    <<"http://",Host/binary,Port/binary,Base/binary, "/", LnCode/binary>>.
+    case cowboy_req:header(<<"x-base-url">>,R,undefined) of
+        undefined -> Port = case cowboy_req:port(R) of
+                             80 -> <<"">>;
+                             Oth -> I2B = integer_to_binary(Oth),
+                                    <<":",I2B/binary>> end,
+                     Host = cowboy_req:host(R),
+                     <<"http://",Host/binary,Port/binary,Base/binary, "/", LnCode/binary>>;
+        BaseURL -> <<BaseURL/binary, "/", LnCode/binary>>
+    end.
+
 params_get(Pars,R) ->
     params_get(Pars,cowboy_req:parse_qs(R),#{}).
 

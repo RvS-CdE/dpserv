@@ -89,6 +89,7 @@ to_json(Req,S) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 doc_meta(R,S) ->
     %% The meta data generating part will probably need its own module, thread.
+
     {ok,I} = file:read_file_info(S#state.oPath),
     #{<<"id">> => S#state.adv_id
      ,<<"size">> => I#file_info.size
@@ -96,10 +97,11 @@ doc_meta(R,S) ->
      ,<<"ctime">> => mktime(I#file_info.ctime)
      ,<<"md5">> => file_md5(S#state.oPath)
      ,<<"links">> => doc_links(R,S)
+     ,<<"links">> => doc_links(R,S)
      }.
 
 doc_links(R,S) ->
-    %?DBG([headers, peer, path, path_info, host, host_info, port, uri]
+    %?DBG([headers, peer, path, path_info, host, host_info, port, uri, base_url]
     %    ,[cowboy_req:headers(R)
     %     ,cowboy_req:peer(R)
     %     ,cowboy_req:path(R)
@@ -107,7 +109,8 @@ doc_links(R,S) ->
     %     ,cowboy_req:host(R)
     %     ,cowboy_req:host_info(R)
     %     ,cowboy_req:port(R)
-    %     ,cowboy_req:uri(R)]),
+    %     ,cowboy_req:uri(R)
+    %     ,cowboy_req:header(<<"x-base-url">>,R,undefined)]),
     Base = get_hostbaseuri(R,S),
     lists:foldl(fun(Link,Acc) ->
                 case make_link(Link,R,S,Base) of
