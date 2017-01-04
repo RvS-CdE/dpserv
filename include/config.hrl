@@ -16,7 +16,12 @@
 -define(COL_DATE_LIMITED,[<<"ctime">>]).
 -define(PAGES,[home_page, collection_list]).
 
-%% Limits downloads per minute
+%% Time period, in seconds, applied to rate limiting
+-define(SERVICE_LIMIT_PERIOD,60).
+%% Limits downloads per period
 -define(SERVICE_LIMITS,#{html_download => 10
                         ,pdf_download => 40
                         ,txt_download => 10}).
+
+-define(RATE_LIMIT_ETS,rate_limit_ets).
+

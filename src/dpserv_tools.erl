@@ -5,6 +5,7 @@
 
 -export([cfg_get/1
         ,print_debug/3
+        ,err_403/2
         ,err_404/2
         ,err_422/2
         ,err_500/2
@@ -43,13 +44,14 @@ print_debug(Module,Fields,Data) ->
 err_500(Msg,Req) -> err_cust(Msg, 500, Req).
 err_404(Msg,Req) -> err_cust(Msg, 404, Req).
 err_422(Msg,Req) -> err_cust(Msg, 422, Req).
+err_403(Msg,Req) -> err_cust(Msg, 403, Req).
 
 err_cust(Msg, Status, Req) when is_list(Msg) ->
     err_cust(list_to_binary(Msg), Status, Req);
 err_cust(Msg, Status, Req) ->
     dps:debug("~p: ~s",[Status,Msg]),
     Body = Msg,
-    R1 = cowboy_req:set_resp_header(<<"content-type">>, <<"text/plain">>,Req),
+    R1 = cowboy_req:set_resp_header(<<"content-type">>, <<"text/html">>,Req),
     R2 = cowboy_req:set_resp_header(<<"content-length">>, byte_size(Body), R1),
     R3 = cowboy_req:set_resp_body(Body,R2),
     cowboy_req:reply(Status,R3).
@@ -59,10 +61,7 @@ get_client_id(Req) ->
     case cowboy_req:header(<<"x-forwarded-for">>, Req, undefined) of
         undefined -> {{A,B,C,D},_} = cowboy_req:peer(Req),
                     P = <<".">>,
-                    [integer_to_binary(A),P
-                    ,integer_to_binary(B),P
-                    ,integer_to_binary(C),P
-                    ,integer_to_binary(D)];
+                    list_to_binary(lists:concat([A,".",B,".",C,".",D]));
         ClientIp -> <<ClientIp/binary, "@w">>
     end.
 

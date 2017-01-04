@@ -6,6 +6,7 @@
 -module(dpserv_app).
 -behaviour(application).
 -include("common_functions.hrl").
+-include("config.hrl").
 
 %% Application callbacks
 -export([start/2, stop/1, output_hook/4]).
@@ -47,6 +48,7 @@ start(_StartType, _StartArgs) ->
               ]}
     ]),
     dps:info("Booting dpserv on port ~p",[get_port()]),
+    ets:new(?RATE_LIMIT_ETS,[public,named_table,{write_concurrency,true},{read_concurrency,true}]),
     {ok, _} = cowboy:start_clear(http_listener, 100,
         [{port,get_port()}],
         #{env => #{dispatch => Dispatch, onresponse => fun ?MODULE:output_hook/4}, onresponse => fun ?MODULE:output_hook/4}

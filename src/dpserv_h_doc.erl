@@ -109,12 +109,18 @@ multiple_choices(Req,S) ->
     {false,Req,S}.
 
 forbidden(Req,S) ->
-    Auth = case cowboy_req:method(Req) of
-            <<"GET">> -> false;
-            _ -> {true, <<"Sorry, bad method: Thanks for trying !">>} end,
-    dps:debug("~s: Forbidden = ~p",[?CL, Auth]),
-    {Auth, Req, S}.
-
+    Type = case S#state.ext of
+            <<"pdf">> -> pdf_download;
+            <<"txt">> -> txt_download;
+            <<"html">> -> html_download;
+            undefined -> pdf_download end,
+        
+    case dpserv_limits:check(S#state.client,Type) of
+        ok -> {false, Req, S};
+        nook -> R = ?ERR_403(<<"<h2>Forbidden by service limit</h2> See <a href=\"https://github.com/RvS-CdE/dpserv\">https://github.com/RvS-CdE/dpserv</a>">>,Req),
+                dps:debug("~s: Forbidden by service limit \"~p\"",[?CL, Type]),
+                {stop, R, S}
+    end.
 is_authorized(Req,S) ->
     %% This is the place to handle IP logging and temporary banning
     _Client = S#state.client,
