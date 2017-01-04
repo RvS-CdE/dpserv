@@ -4,6 +4,8 @@ dpserv
 
 RESTful HATEOAS document server, with on-the-fly pdf to text and html conversion, support for collections and applying different service limit controls.
 
+**Goal**: Provide an easy-to-use API for downloading and synchronizing collections of public documents in PDF format.
+
 Example client:
 https://github.com/PieterjanMontens/dpserv_client
 
