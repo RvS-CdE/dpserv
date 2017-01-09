@@ -127,15 +127,28 @@ is_authorized(Req,S) ->
     {true, Req, S}.
 
 content_types_provided(Req, S) ->
+    %% Dirty, but just needs to work for now
+    ParsedAccept = cowboy_req:parse_header(<<"accept">>,Req),
+    Accepted = [<<Type/binary,"/",Subtype/binary>> || {{Type,Subtype,_},_,_} <- ParsedAccept],
+    APdf = lists:member(<<"*/*">>,Accepted),
+    AText = lists:member(<<"text/plain">>,Accepted),
+    AHtml = lists:member(<<"text/html">>,Accepted),
+
+    %?DBG([parsed,accept],[ParsedAccept,Accepted]),
     Pdf = {<<"application/pdf">>, to_pdf},
     Txt = {<<"text/plain">>, to_text},
     Html = {<<"text/html">>, to_html},
+
     Out = case S#state.ext of
             <<"pdf">> -> [Pdf];
             <<"txt">> -> [Txt];
             <<"html">> -> [Html];
-            undefined -> [Pdf]
+            undefined -> if APdf -> [Pdf];
+                            AText -> [Txt];
+                            AHtml -> [Html];
+                            true -> [Pdf] end
           end,
+
     {Out, Req, S}.
 
 service_available(Req,S) ->
