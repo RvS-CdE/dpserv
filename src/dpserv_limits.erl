@@ -6,6 +6,7 @@
 -include("common_functions.hrl").
 
 -export([check/2    %% Check if an IP is allowed to acces resource
+        ,check/3    %% Apply client specific session limits
         ,list/0     %% List IP's and some data
         ]).
 
@@ -15,6 +16,18 @@
 check(Ip,Def) ->
     check(Ip,Def,?RATE_LIMIT_ETS,?SERVICE_LIMITS).
 
+    check(Ip,Def,undefined) ->
+        check(Ip,Def);
+
+    check(Ip,Def,InKey) ->
+        Key = <<InKey/binary,Ip/binary>>,
+        case dpserv_clients:keyToID(Key) of
+            undefined -> dps:warning("Could not find settings for provided client, key: ~p, IP: ~p",[InKey,Ip]),
+                         check(Ip,Def);
+            ID -> Settings = dpserv_clients:settings(ID),
+                  check(Ip,Def,?RATE_LIMIT_ETS,Settings)
+        end.
+        
     check(Ip,Def,Table,Conf) ->
         RawRec = rec_get(Ip,Table),
         ClnRec = rec_clean(RawRec),
@@ -22,7 +35,8 @@ check(Ip,Def) ->
         rec_store(Rec,Table),
         Max   = maps:get(Def,Conf),
         Check = rec_type_count(Def,Rec),
-        if Check >  Max -> nook;
+        %% Illimeted works 'cause atoms > integers, per erlang spec
+        if Check >  Max -> nook; 
            true -> ok
         end.
 
@@ -94,7 +108,7 @@ stamp_get() ->
 -define(TST_ETS,tst_ets).
 
 -define(IP1,<<"127.127.127.127">>).
--define(TST_CONF,#{tst => 2}).
+-define(TST_CONF,#{tst => 2, ill => '*'}).
 
 rec_clean_test_() ->
     Now = stamp_get(),
@@ -116,6 +130,20 @@ rec_count_test_() ->
     ,?_assertEqual(0, rec_type_count(sxe,TstRec))
     ].
 
+   
+tst_illimited(T) ->
+    Now = stamp_get(),
+    Rec = {?IP1,[{ill, Now - 120}
+                ,{ill, Now - 3600*24}
+                ,{ill, Now - 49}
+                ,{ill, Now - 39}
+                ,{ill, Now - 29}
+                ,{ill, Now - 10}
+                ,{ill, Now - 8}
+                ,{ill, Now - 2}
+                ,{ill, Now}]},
+    rec_store(Rec,T),
+    [?_assertEqual(ok, check(?IP1, ill, T, ?TST_CONF))].
     
 
 tst_exists(T) ->
@@ -169,6 +197,7 @@ basic_rate_limit_test_() ->
          ,fun tst_getifnew/1
          ,fun tst_getifthere/1
          ,fun tst_shouldblock/1
+         ,fun tst_illimited/1
          ]
     }.
 

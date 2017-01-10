@@ -30,13 +30,18 @@
 
 -record(state, {opts :: list()
                ,adv_id :: binary()
-               ,ext :: binary()
+               %,ext :: binary()
+               ,rmime :: binary()
                ,raw :: binary()
                ,oPath :: binary()
                ,client :: list()
                ,session :: list()
+               ,qs :: list()
                ,lang :: atom() }).
 
+-define(MPDF, <<"application/pdf">>).
+-define(MTXT, <<"text/plain">>).
+-define(MHTML, <<"text/html">>).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% MISC OTP
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -49,16 +54,18 @@ init(Req, Opts) ->
     log_session(Req,Session),
     S = #state{opts = Opts
               ,adv_id = number_prefix(Number)
-              ,ext = number_suffix(Number)
+              %,ext = number_suffix(Number)
               ,raw = Number
               ,client = Client
               ,session = Session
               ,oPath = OPath
+              ,qs = cowboy_req:parse_qs(Req)
+              ,rmime = requested_mime(Req,number_suffix(Number))
               ,lang = Lang},
     {cowboy_rest, Req, S }.
 
 terminate(normal,_Req,S) ->
-    dps:info("~s: served ~s.~s",[?CL,S#state.adv_id, S#state.ext]), ok;
+    dps:info("~s: served ~s (~s)",[?CL,S#state.adv_id, S#state.rmime]), ok;
     terminate({throw,{dpserv,Err,Data}},_Req,S) ->
         dps:error("~s: dpserv experienced error ~p\n\tData: ~p\n\tState: ~p\n",[?CL,Err,Data,S]), ok;
     terminate(Reason,_Req,S) ->
@@ -109,51 +116,35 @@ multiple_choices(Req,S) ->
     {false,Req,S}.
 
 forbidden(Req,S) ->
-    Type = case S#state.ext of
-            <<"pdf">> -> pdf_download;
-            <<"txt">> -> txt_download;
-            <<"html">> -> html_download;
-            undefined -> pdf_download end,
-        
-    case dpserv_limits:check(S#state.client,Type) of
+    Type = maps:get(S#state.rmime, #{?MPDF  => pdf_download
+                              ,?MTXT  => txt_download
+                              ,?MHTML => html_download }),
+
+    case dpserv_limits:check(S#state.client,Type,proplists:get_value(<<"api_key">>,S#state.qs)) of
         ok -> {false, Req, S};
         nook -> R = ?ERR_403(<<"<h2>Forbidden by service limit</h2> See <a href=\"https://github.com/RvS-CdE/dpserv\">https://github.com/RvS-CdE/dpserv</a>">>,Req),
                 dps:debug("~s: Forbidden by service limit \"~p\"",[?CL, Type]),
                 {stop, R, S}
     end.
+
 is_authorized(Req,S) ->
     %% This is the place to handle IP logging and temporary banning
     _Client = S#state.client,
     {true, Req, S}.
 
 content_types_provided(Req, S) ->
-    %% Dirty, but just needs to work for now
-    ParsedAccept = cowboy_req:parse_header(<<"accept">>,Req),
-    Accepted = [<<Type/binary,"/",Subtype/binary>> || {{Type,Subtype,_},_,_} <- ParsedAccept],
-    APdf = lists:member(<<"*/*">>,Accepted),
-    AText = lists:member(<<"text/plain">>,Accepted),
-    AHtml = lists:member(<<"text/html">>,Accepted),
-
-    %?DBG([parsed,accept],[ParsedAccept,Accepted]),
     Pdf = {<<"application/pdf">>, to_pdf},
     Txt = {<<"text/plain">>, to_text},
     Html = {<<"text/html">>, to_html},
 
-    Out = case S#state.ext of
-            <<"pdf">> -> [Pdf];
-            <<"txt">> -> [Txt];
-            <<"html">> -> [Html];
-            undefined -> if APdf -> [Pdf];
-                            AText -> [Txt];
-                            AHtml -> [Html];
-                            true -> [Pdf] end
-          end,
-
+    Out = maps:get(S#state.rmime, #{?MPDF  => [Pdf]
+                                   ,?MTXT  => [Txt]
+                                   ,?MHTML => [Html] }),
     {Out, Req, S}.
 
 service_available(Req,S) ->
-    case S#state.ext of
-        <<"pdf">> -> {true,Req,S};
+    case S#state.rmime of
+        ?MPDF -> {true,Req,S};
         _ -> case httpc:request(get, {"http://localhost:10004/tika",[]}, [], []) of
                 {error,_} -> dps:warning("~s: Tika not available !",[?CL]),
                              {false,Req,S};
@@ -216,4 +207,18 @@ tika_query(Path,Format) ->
         {ok, {Status,_, _}} -> {error, io_lib:format("unexpected response status: ~p",[Status])}
     end.
 
+requested_mime(Req,undefined) ->
+    ParsedAccept = cowboy_req:parse_header(<<"accept">>,Req),
+    Accepted = [<<Type/binary,"/",Subtype/binary>> || {{Type,Subtype,_},_,_} <- ParsedAccept],
 
+    case {lists:member(<<"*/*">>,Accepted)
+         ,lists:member(?MTXT,Accepted)
+         ,lists:member(?MHTML,Accepted)} of
+         {true, _, _} -> ?MPDF;
+         {_,true,_} -> ?MTXT;
+         {_,_,true} -> ?MHTML
+    end;
+    
+requested_mime(_,<<"txt">>) -> ?MTXT;
+requested_mime(_,<<"html">>) -> ?MHTML;
+requested_mime(_,_) -> ?MPDF.

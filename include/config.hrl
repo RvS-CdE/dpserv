@@ -25,3 +25,5 @@
 
 -define(RATE_LIMIT_ETS,rate_limit_ets).
 
+-define(CLIENT_HASH_ALG,sha512).
+
