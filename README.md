@@ -15,6 +15,7 @@ Current state
  * Provides HATEOAS browsing from the root URL up to each different document
  * Extracts text from PDF files, and can serve it in text and html
  * Applies basic rate limiting (see [config file](include/config.hrl) )
+ * Rate limiting can be client-specific (using a private client key)
 
  
 Technology
