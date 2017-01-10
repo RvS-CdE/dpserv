@@ -60,7 +60,7 @@ err_cust(Msg, Status, Req) ->
 get_client_id(Req) ->
     case cowboy_req:header(<<"x-forwarded-for">>, Req, undefined) of
         undefined -> {{A,B,C,D},_} = cowboy_req:peer(Req),
-                    P = <<".">>,
+                    %P = <<".">>,
                     list_to_binary(lists:concat([A,".",B,".",C,".",D]));
         ClientIp -> <<ClientIp/binary, "@w">>
     end.

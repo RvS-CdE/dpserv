@@ -89,6 +89,7 @@ to_json(Req,S) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 doc_meta(R,S) ->
     %% The meta data generating part will probably need its own module, thread.
+    PData = pdf_data(S#state.oPath),
 
     {ok,I} = file:read_file_info(S#state.oPath),
     #{<<"id">> => S#state.adv_id
@@ -98,6 +99,7 @@ doc_meta(R,S) ->
      ,<<"md5">> => file_md5(S#state.oPath)
      ,<<"links">> => doc_links(R,S)
      ,<<"links">> => doc_links(R,S)
+     ,<<"pages">> => erlang:list_to_integer(maps:get("pages",PData,"0"))
      }.
 
 doc_links(R,S) ->
@@ -191,6 +193,18 @@ file_md5(Path) ->
         Digest = crypto:hash_final(Context),
         dpserv_tools:bin2hex(Digest).
 
+pdf_data(Path) ->
+    Data = os:cmd(lists:concat(["pdfinfo ",erlang:binary_to_list(Path)])),
+    parse_pdf_data(Data).
+
+parse_pdf_data(Data) ->
+    ToksCln = [string:to_lower(string:strip(T)) || T <- string:tokens(Data,":\n")],
+    F = fun([Key,Val|T],Fun) ->
+            [{Key,Val} | Fun(T,Fun)];
+           ([Single],_) -> [{Single,true}];
+           ([],_) -> [] end,
+    maps:from_list(F(ToksCln,F)).
+
 %% Inspiration : http://stackoverflow.com/users/1691583/viacheslav-kovalev @ http://stackoverflow.com/questions/28887695/erlang-converting-timestamp-to-year-month-daythourminsecz-format
 mktime(Datetime) ->
     iso8601:format(Datetime).
@@ -205,7 +219,17 @@ get_hostbaseuri(R,S,L) -> dpserv_tools:get_hostbaseuri(R,maps:get(base,S#state.o
 -include_lib("eunit/include/eunit.hrl").
 -define(TESTFILE,<<"./LICENSE">>).
 -define(TESTMD5,<<"65D26FCC2F35EA6A181AC777E42DB1EA">>).
+-define(TEST_PDF_INFO,"Title:          Microsoft Word - 56372.docx\nAuthor:         lmi\nCreator:        PScript5.dll Version 5.2.2\nProducer:       Acrobat Distiller 9.0.0 (Windows)\nCreationDate:   Mon Jul  7 09:33:49 2014\nModDate:        Mon Jul  7 09:33:49 2014\nTagged:         no\nUserProperties: no\nSuspects:       no\nForm:           none\nJavaScript:     no\nPages:          5\nEncrypted:      no\nPage size:      595.22 x 842 pts (A4)\nPage rot:       0\nFile size:      59412 bytes\nOptimized:      yes\nPDF version:    1.5\n").
+
 
 filemd5_test() ->
     ?assertEqual(?TESTMD5, file_md5(?TESTFILE)).
+
+parse_pdf_info_test_() ->
+    D = parse_pdf_data(?TEST_PDF_INFO),
+    [?_assert(is_map(D))
+    ,?_assertEqual("lmi",maps:get("author",D))
+    ,?_assertEqual("5",maps:get("pages",D))
+    ].
+
 -endif.

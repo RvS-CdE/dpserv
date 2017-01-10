@@ -24,7 +24,7 @@ Technology
  * Erlang/OTP
  * [Rebar3](https://www.rebar3.org/), [Cowboy2](https://github.com/ninenines/cowboy), 
   [Lager](https://github.com/basho/lager), [Jiffy](https://github.com/davisp/jiffy), [iso8601](https://github.com/erlsci/iso8601)
- * Integrates with Apache TIKA for document conversion
+ * Integrates with Apache TIKA for document conversion, and pdfinfo (xpdf-utils in debian) for PDF file information
 
 TODO
 ----
