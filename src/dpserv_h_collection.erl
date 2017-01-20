@@ -78,7 +78,7 @@ malformed_request(Req, S) ->
     end.
 
     parse_indate(Key,Params) ->
-        case maps:get(Key,Params) of
+        case maps:get(Key,Params,undefined) of
             undefined -> Params;
             SomeDate -> try Params#{Key => iso8601:parse(SomeDate)}
                         catch error:badarg -> error({badarg,Key}) end
@@ -117,10 +117,10 @@ to_json(Req,S) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Internal Functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 collection_make(ctime,R,S) ->
-    {ok,All} = file:list_dir(?GET_ENV(srv_dir)),
+    %{ok,All} = file:list_dir(?GET_ENV(srv_dir)),
     Params = S#state.params,
-    AdvFiles = dpserv_tools:filter_filelist(adv,All),
-    BefCheck = case maps:get(to,Params) of
+    %AdvFiles = dpserv_tools:filter_filelist(adv,All),
+    BefCheck = case maps:get(to,Params,undefined) of
                 undefined -> fun(_) -> true end;
                 Date -> Mark = calendar:datetime_to_gregorian_seconds(Date),
                         fun(_In) ->
@@ -128,7 +128,7 @@ collection_make(ctime,R,S) ->
                             Needle < Mark end
               end,
 
-    AftCheck = case maps:get(from,Params) of
+    AftCheck = case maps:get(from,Params,undefined) of
                 undefined -> fun(_) -> true end;
                 Date2 -> Mark2 = calendar:datetime_to_gregorian_seconds(Date2),
                         fun(_In) ->
@@ -136,15 +136,17 @@ collection_make(ctime,R,S) ->
                             Needle > Mark2 end
               end,
 
-    RawList = lists:foldl(fun(FName,Acc) ->
-                            {ok,I} = file:read_link_info(?GET_ENV(srv_dir) ++ "/" ++ FName),
-                            Ctime = I#file_info.ctime,
-                            case {BefCheck(Ctime),AftCheck(Ctime)} of
-                                {true, true} -> dict:update(extractInt(FName), fun(Cnt) -> Cnt+1 end, 1, Acc);
-                                _ -> Acc
-                            end end
-                          ,dict:new()
-                          ,AdvFiles),
+    FoldFun = fun(FName,Acc) ->
+                 {ok,I} = file:read_link_info(FName,[raw]),
+                 Ctime = I#file_info.ctime,
+                 case {BefCheck(Ctime),AftCheck(Ctime)} of
+                     {true, true} -> dict:update(extractInt(FName), fun(Cnt) -> Cnt+1 end, 1, Acc);
+                     _ -> Acc
+                 end end,
+
+    %RawList = lists:foldl(FoldFun,dict:new() ,AdvFiles),
+
+    RawList = filelib:fold_files(?GET_ENV(srv_dir),"^[0-9]*\.(pdf|PDF)$",false, FoldFun, dict:new()),
 
     List = dict:fetch_keys(RawList),
     Base = dpserv_tools:get_hostbaseuri(R,maps:get(base,S#state.opts)),
@@ -154,6 +156,7 @@ collection_make(ctime,R,S) ->
      ,<<"links">> => [ #{<<"rel">> => <<"self">>
                         ,<<"href">> => <<Base/binary,"/col/all">>} ]
      ,<<"content">> => list_generate(List,Base)
+     ,<<"count">> => length(List)
      };
 
 collection_make(all,R,S) ->
@@ -181,14 +184,18 @@ list_generate(Numbers,BaseUri) ->
             ,Numbers).
 
 extractInt(Num) ->
-    intParts(Num,[]).
+    intParts2(Num,[]).
 
-    intParts([H|_],Acc) when H =:= $.; H =:= $_ ->
-        list_to_binary(lists:reverse(Acc));
-    intParts([],Acc) ->
-        list_to_binary(lists:reverse(Acc));
-    intParts([H|T],Acc) ->
-        intParts(T,[H|Acc]).
+    %intParts([H|_],Acc) when H =:= $.; H =:= $_ ->
+    %    list_to_binary(lists:reverse(Acc));
+    %intParts([],Acc) ->
+    %    list_to_binary(lists:reverse(Acc));
+    %intParts([H|T],Acc) ->
+    %    intParts(T,[H|Acc]).
+
+    intParts2([],Acc) -> list_to_binary(lists:reverse(Acc));
+    intParts2([C|T],Acc) when C >= $0, C =<  $9 -> intParts2(T,[C | Acc]);
+    intParts2([_|T],Acc) -> intParts2(T,Acc).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Testing

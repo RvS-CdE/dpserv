@@ -24,6 +24,7 @@
         ,link_factory/3
         ,filter_filelist/2
         ,get_env_def/0
+        ,find_bracket/2
         ]).
 
 cfg_get(Key) ->
@@ -179,12 +180,32 @@ link_factory(Def, R ,Opts) ->
              ,maps:keys(Def)).
 
 filter_filelist(adv,In) ->
-    {ok,Re} = re:compile("^[0-9]*\.(pdf|PDF)$"),
+    Job = fun([C|T],F) when C >= 48, C =< 57 -> F(T,F);
+             (".pdf",_) -> ok;
+             (".PDF",_) -> ok;
+             (_,_) -> nook end,
+    %{ok,Re} = re:compile("^[0-9]*\.(pdf|PDF)$"),
     lists:filter(fun(Name) ->
-                    Res = re:run(Name,Re),
-                    Res =/= nomatch
+                    Job(Name,Job) =:= ok
+                    %Res = re:run(Name,Re),
+                    %Res =/= nomatch
                     end
                 ,In).
+
+find_bracket([Pivot],_) -> Pivot;
+find_bracket(List,Fun) ->
+    Pivot = adv_find_pivot(List),
+    case Fun(Pivot) of
+        higher -> find_bracket([El || El <- List, El > Pivot],Fun);
+        lower -> find_bracket([El || El <- List, El < Pivot],Fun);
+        ok   -> Pivot
+    end.
+    
+
+adv_find_pivot(List) ->
+    lists:nth(round(length(List) / 2), List).
+
+
 
 
 get_env_def() ->
