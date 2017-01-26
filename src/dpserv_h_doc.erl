@@ -161,7 +161,16 @@ to_pdf(Req,S) ->
             {error, enoent} -> throw({dpserv,nosuchfile,S#state.oPath});
             {error, R} -> throw({dpserv,filereaderror,[R,S#state.oPath]})
           end,
-    {Out, Req, S}.
+    FN = filename:basename(S#state.oPath),
+    ReqCh = cowboy_req:stream_reply(200
+                                   ,#{<<"content-type">> => <<"application/pdf">>
+                                     ,<<"content-disposition">> => <<"inline; filename=",FN/binary>>
+                                     ,<<"content-transfer-encoding">> => <<"binary">>
+                                     ,<<"content-length">> => integer_to_binary(size(Out))
+                                     }
+                                   , Req),
+    serve_chunked(Out,ReqCh),
+    {stop,Req,S}.
 
 to_text(Req,S) ->
     dps:debug("~s: outputting in text",[?CL]),
@@ -188,6 +197,14 @@ to_html(Req,S) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Internal Functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Default: 128kb
+serve_chunked(<<D:131072/binary,R/binary>>,Req) ->
+    cowboy_req:stream_body(D,nofin,Req),
+    serve_chunked(R,Req);
+
+serve_chunked(<<D/binary>>,Req) ->
+    cowboy_req:stream_body(D,fin,Req).
+
 %original_path(Num,Ln,Type) -> dpserv_tools:original_path(Num,Ln,Type).
 get_client_id(Req) -> dpserv_tools:get_client_id(Req).
 log_session(Req,Session) -> dpserv_tools:log_session(Req,Session).
