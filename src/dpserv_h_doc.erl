@@ -3,6 +3,7 @@
 
 -include("config.hrl").
 -include("common_functions.hrl").
+-include("error_pages.hrl").
 -include_lib("kernel/include/file.hrl").
 
 -export([init/2
@@ -84,7 +85,7 @@ resource_exists(Req, S) ->
     dps:debug("~s: Resource exist check (state: ~p)",[?CL,S]),
     case filelib:is_file(S#state.oPath) of
         true -> {true, Req,S };
-        false -> R = ?ERR_404(<<"Just Not There">>,Req),
+        false -> R = ?ERR_404(?PAGE_404,Req),
                  {stop,R,S}
     end.
 
